@@ -1,0 +1,403 @@
+{
+    "openapi":"3.0.2",
+    "info": {
+      "title":"TDMS Environmental API",
+      "version":"1.4"
+    },
+    "components": {
+      "securitySchemes": {
+                	"ApiKeyAuth": {
+                	     "type": "apiKey",
+                	     "description": "API key is used to authorize any requests",
+                	     "name": "x-tdms-apikey",
+                	     "in": "header"
+                	}
+                
+                }
+         },
+         "security": [ {
+              "ApiKeyAuth": []
+              }
+         ],
+    "paths": {
+      "/particle/{area}/{location}/{deviceid}/{particlereading}": {
+            "post": {
+                "summary": "Post a particle reading",
+                "operationId": "postParticle",
+                "tags": [
+                    "particle"
+                ],
+               
+                "parameters": [
+						{
+                        "name": "x-tdms-siteid",
+                        "in": "header",
+                        "description": "the unique siteid that is hosting the device",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                       },
+					   {
+                        "name": "x-tdms-apikey",
+                        "in": "header",
+                        "description": "the client secret pair you will be using for api authentication",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                       },{
+            "name": "x-tdms-messageid",
+            "in": "header",
+            "description": "The unique message id that is to locate the message from the client ",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+                            {
+                             "name": "area",
+                             "in": "path",
+                             "description": "Area on the floor where the particle reading  is coming from",
+                             "required": true,
+                             "schema": {
+                                 "type": "string",
+								 "pattern":"^[A-Za-z]*[A-Za-z0-9-_]*[A-Za-z0-9]$"
+                             }
+                            },
+                             {
+                                "name": "location",
+                                "in": "path",
+                                "description": "location on the floor within the area the reading is coming from",
+                                "required": true,
+                                "schema": {
+                                    "type": "string",
+									"pattern":"^[A-Za-z]*[A-Za-z0-9-_]*[A-Za-z0-9]$"
+                                }
+                             },
+                             {
+                                "name": "deviceid",
+                                "in": "path",
+                                "description": "the uniqueid of the device , could be the serialnumber. The device reading the particles",
+                                "required": true,
+                                "schema": {
+                                    "type": "string",
+									"pattern":"^[A-Za-z]*[A-Za-z0-9-_]*[A-Za-z0-9]$"
+                                }
+
+
+                             },
+                             {
+                                "name": "particlereading",
+                                "in": "path",
+                                "description": "The actual particle reading",
+                                "required": true,
+                                "schema": {
+                                    "type": "integer"
+                                }
+
+
+                             },
+                             {
+                                "name": "microns",
+                                "in": "query",
+                                "description": "The particle size that the reading relates to ",
+                                "required": true,
+                                "schema": {
+                                    "type": "number",
+                                    "enum": [0.3,0.5,1,5,10]
+                                }
+
+
+                             },
+                             {
+                                "name": "samplePeriod",
+                                "in": "query",
+                                "description": "Number of seconds that the air was sampled.  ",
+                                "required": true,
+                                "schema": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                }
+
+
+                             },
+                             {
+                                "name": "unitOfMeasure",
+                                "in": "header",
+                                "description": "The unit of measure such as cubic M or cubic Foot, default is M3",
+                                "required": false,
+                               
+                                "schema": {
+                                    "type": "string",
+                                    "enum": ["M3","FT3"]
+                                }
+
+
+                             },
+                             {
+                                "name": "x-tdms-applicationid",
+                                "in": "header",
+                                "description": "The identifier of the application invoking the rest call. ",
+                                "required": true,
+                               
+                                "schema": {
+                                    "type": "string"
+                                 }
+
+
+                             }
+                            
+
+
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+               
+
+            }
+
+
+
+        },
+        "/temperature/{area}/{location}/{deviceid}/{tempvalue}": {
+            "post": {
+                "summary": "Post a temperature reading",
+                "operationId": "postTemperature",
+                "tags": [
+                    "temperature"
+                ],
+               
+                "parameters": [
+                    {
+                        "name": "x-tdms-siteid",
+                        "in": "header",
+                        "description": "the unique siteid that is hosting the device",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                       },
+                       {
+            "name": "x-tdms-messageid",
+            "in": "header",
+            "description": "The unique message id that is to locate the message from the client ",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+					   {
+                        "name": "x-tdms-apikey",
+                        "in": "header",
+                        "description": "the client secret pair you will be using for api authentication",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                       },
+                            {
+                             "name": "area",
+                             "in": "path",
+                             "description": "Area on the floor where the temperature is coming from",
+                             "required": true,
+                             "schema": {
+                                 "type": "string",
+								 "pattern":"^[A-Za-z]*[A-Za-z0-9-_]*[A-Za-z0-9]$"
+                             }
+                            },
+                             {
+                                "name": "location",
+                                "in": "path",
+                                "description": "location on the floor within the area the temperature is coming from",
+                                "required": true,
+                                "schema": {
+                                    "type": "string",
+									"pattern":"^[A-Za-z]*[A-Za-z0-9-_]*[A-Za-z0-9]$"
+                                }
+                             },
+                             {
+                                "name": "deviceid",
+                                "in": "path",
+                                "description": "the uniqueid of the device , could be the serialnumber. The device reading the temperature",
+                                "required": true,
+                                "schema": {
+                                    "type": "string",
+									"pattern":"^[A-Za-z]*[A-Za-z0-9-_]*[A-Za-z0-9]$"
+                                }
+
+
+                             },
+                             {
+                                "name": "tempvalue",
+                                "in": "path",
+                                "description": "The actual temperature reading",
+                                "required": true,
+                                "schema": {
+                                    "type": "number"
+                                }
+
+
+                             },
+                             {
+                                "name": "unitOfMeasure",
+                                "in": "header",
+                                "description": "The unit of measure to be applied to the temperature value. Default is C for centigrade. Values can be C or F",
+                                "required": false,
+                               
+                                "schema": {
+                                    "type": "string",
+                                    "enum": ["C","F"]
+                                }
+
+
+                             },
+                             {
+                                "name": "x-tdms-applicationid",
+                                "in": "header",
+                                "description": "The identifier of the application invoking the rest call. ",
+                                "required": true,
+                               
+                                "schema": {
+                                    "type": "string"
+                                 }
+
+
+                             }
+                            
+
+
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+               
+
+            }
+
+
+
+        },
+        "/humidity/{area}/{location}/{deviceid}/{humidityvalue}": {
+            "post": {
+              "summary": "Post a humidity reading",
+                "operationId": "postHumidity",
+                "tags": [
+                    "humidity"
+                ],
+                "description": "Post a humidity value",
+                "parameters": [
+                    {
+                        "name": "x-tdms-siteid",
+                        "in": "header",
+                        "description": "the unique siteid that is hosting the device",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                       },
+                       {
+            "name": "x-tdms-messageid",
+            "in": "header",
+            "description": "The unique message id that is to locate the message from the client ",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+					   {
+                        "name": "x-tdms-apikey",
+                        "in": "header",
+                        "description": "the client secret pair you will be using for api authentication",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                       },
+                            {
+                             "name": "area",
+                             "in": "path",
+                             "description": "Area on the floor where the humidity is coming from",
+                             "required": true,
+                             "schema": {
+                                 "type": "string",
+								 "pattern":"^[A-Za-z]*[A-Za-z0-9-_]*[A-Za-z0-9]$"
+                             }
+                            },
+                             {
+                                "name": "location",
+                                "in": "path",
+                                "description": "location on the floor within the area the humidity is coming from",
+                                "required": true,
+                                "schema": {
+                                    "type": "string",
+									"pattern":"^[A-Za-z]*[A-Za-z0-9-_]*[A-Za-z0-9]$"
+                                }
+                             },
+                             {
+                                "name": "deviceid",
+                                "in": "path",
+                                "description": "the uniqueid of the device , could be the serialnumber. The device reading the humidity",
+                                "required": true,
+                                "schema": {
+                                    "type": "string",
+									"pattern":"^[A-Za-z]*[A-Za-z0-9-_]*[A-Za-z0-9]$"
+                                }
+
+
+                             },
+                             {
+                                "name": "humidityvalue",
+                                "in": "path",
+                                "description": "The actual humidity reading",
+                                "required": true,
+                                "schema": {
+                                    "type": "number"
+                                }
+
+
+                             },
+                             {
+                                "name": "unitOfMeasure",
+                                "in": "header",
+                                "description": "The unit of measure to be applied to the temperature value. Default is RH for Relative. Values can be RH( Relative ),AH( absolute) ,SH( Specific ). ",
+                                "required": false,
+                               
+                                "schema": {
+                                    "type": "string",
+                                    "enum": ["RH","AH","SH"]
+                                }
+
+
+                             },
+                             {
+                                "name": "x-tdms-applicationid",
+                                "in": "header",
+                                "description": "The identifier of the application invoking the rest call. ",
+                                "required": true,
+                               
+                                "schema": {
+                                    "type": "string"
+                                 }
+
+
+                             }
+                            
+
+
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        }
+    }
+    
+  }
