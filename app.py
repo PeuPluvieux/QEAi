@@ -21,8 +21,9 @@ GPT_MODEL = "gpt-4.1-mini"   # or gpt-4.1, gpt-4o-mini, etc.
 os.makedirs(DATA_ROOT, exist_ok=True)
 os.makedirs(INDEX_DIR, exist_ok=True)
 
-client = OpenAI()
-
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+print("Has API key:", bool(os.getenv("OPENAI_API_KEY")))
+)
 # In-memory cache
 _embeddings_cache = None
 _chunks_cache = None
