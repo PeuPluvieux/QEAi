@@ -5,3 +5,4 @@ python-docx
 python-pptx
 pandas
 numpy
+python-dotenv==1.0.1
