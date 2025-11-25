@@ -4,26 +4,59 @@ import uuid
 import numpy as np
 import streamlit as st
 from openai import OpenAI
+from openai import RateLimitError
 from PyPDF2 import PdfReader
 from docx import Document as DocxDocument
 from pptx import Presentation
 import pandas as pd
+from dotenv import load_dotenv
 
 # ---------------- CONFIG ----------------
 DATA_ROOT = "data"
 INDEX_DIR = "index"
 CHUNKS_PATH = os.path.join(INDEX_DIR, "chunks.jsonl")
 EMB_PATH = os.path.join(INDEX_DIR, "embeddings.npy")
-EMBED_MODEL = "text-embedding-3-small"
-GPT_MODEL = "gpt-4.1-mini"   # or gpt-4.1, gpt-4o-mini, etc.
 
+DEFAULT_OPENAI_GPT_MODEL = "gpt-4.1-mini"
+DEFAULT_OPENAI_EMBED_MODEL = "text-embedding-3-small"
+EMBED_DIM_BY_MODEL = {
+    "text-embedding-3-small": 1536,
+    "text-embedding-3-large": 3072,
+}
+
+load_dotenv(override=True)
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+# Use OpenAI only (no GitHub Models)
+GPT_MODEL = os.getenv("OPENAI_GPT_MODEL", DEFAULT_OPENAI_GPT_MODEL)
+EMBED_MODEL = os.getenv("OPENAI_EMBED_MODEL", DEFAULT_OPENAI_EMBED_MODEL)
+_api_key = OPENAI_API_KEY
+_base_url = None
+
+EMBED_DIM = EMBED_DIM_BY_MODEL.get(EMBED_MODEL, 1536)
 
 os.makedirs(DATA_ROOT, exist_ok=True)
 os.makedirs(INDEX_DIR, exist_ok=True)
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-print("Has API key:", bool(os.getenv("OPENAI_API_KEY")))
-)
+if not _api_key:
+    st.error("Set OPENAI_API_KEY and rerun.")
+
+try:
+    client = OpenAI(api_key=_api_key) if _api_key else None
+except Exception:
+    client = None
+
+# Debug: print a masked prefix of the API key the running process sees (safe: not full key)
+def _masked_key(k: str) -> str:
+    if not k:
+        return "(no key)"
+    if len(k) <= 10:
+        return k[:4] + "..."
+    return k[:6] + "..." + k[-4:]
+
+print("OPENAI_API_KEY in process:", _masked_key(_api_key))
+
 # In-memory cache
 _embeddings_cache = None
 _chunks_cache = None
@@ -35,7 +68,7 @@ def load_index():
     global _embeddings_cache, _chunks_cache
 
     if not os.path.exists(CHUNKS_PATH) or not os.path.exists(EMB_PATH):
-        _embeddings_cache = np.zeros((0, 1536), dtype=np.float32)
+        _embeddings_cache = np.zeros((0, EMBED_DIM), dtype=np.float32)
         _chunks_cache = []
         return
 
@@ -60,11 +93,19 @@ def save_index():
 
 
 def embed_text(text: str) -> np.ndarray:
-    resp = client.embeddings.create(
-        model=EMBED_MODEL,
-        input=text
-    )
-    return np.array(resp.data[0].embedding, dtype=np.float32)
+    if client is None:
+        raise RuntimeError("Client is not configured. Set GITHUB_TOKEN (GitHub Models) or OPENAI_API_KEY and restart.")
+    try:
+        resp = client.embeddings.create(
+            model=EMBED_MODEL,
+            input=text
+        )
+        return np.array(resp.data[0].embedding, dtype=np.float32)
+    except RateLimitError as e:
+        raise RuntimeError(
+            "Embedding rate limit reached. Wait for quota reset or switch provider (set GITHUB_TOKEN) "
+            "then rebuild the index."
+        ) from e
 
 # ---------------- TEXT EXTRACTION ----------------
 
@@ -238,7 +279,15 @@ def handle_upload(files, project, folder):
     for save_path, filename, chunks in file_chunks:
         status.text(f"Indexing {filename}...")
         for chunk in chunks:
-            emb = embed_text(chunk)
+            try:
+                emb = embed_text(chunk)
+            except RuntimeError as e:
+                status.empty()
+                progress.empty()
+                return f"Upload stopped: {e}"
+
+            if _embeddings_cache is not None and _embeddings_cache.shape[0] > 0 and _embeddings_cache.shape[1] != emb.shape[0]:
+                return "Embedding model changed since the index was built. Please click 'Scan data/ folder and (re)build index' to rebuild with the current model."
 
             meta = {
                 "id": str(uuid.uuid4()),
@@ -249,7 +298,7 @@ def handle_upload(files, project, folder):
                 "text": chunk[:4000]   # keep per-chunk text
             }
 
-            if _embeddings_cache.shape[0] == 0:
+            if _embeddings_cache is None or _embeddings_cache.shape[0] == 0:
                 _embeddings_cache = emb.reshape(1, -1)
             else:
                 _embeddings_cache = np.vstack([_embeddings_cache, emb])
@@ -307,7 +356,7 @@ def scan_and_index_disk():
         return "No extractable text found in data/."
 
     # Reset caches
-    _embeddings_cache = np.zeros((0, 1536), dtype=np.float32)
+    _embeddings_cache = np.zeros((0, EMBED_DIM), dtype=np.float32)
     _chunks_cache = []
 
     progress = st.progress(0)
@@ -319,7 +368,12 @@ def scan_and_index_disk():
         status.text(f"Indexing {basename}...")
         mtime = os.path.getmtime(fp) if os.path.exists(fp) else None
         for chunk in chunks:
-            emb = embed_text(chunk)
+            try:
+                emb = embed_text(chunk)
+            except RuntimeError as e:
+                status.empty()
+                progress.empty()
+                return f"Reindex stopped: {e}"
             meta = {
                 "id": str(uuid.uuid4()),
                 "project": project,
@@ -370,6 +424,8 @@ def rag_answer(
 
     def retrieve_for_query(q, threshold, max_files_local):
         q_emb_local = embed_text(q)
+        if _embeddings_cache.shape[1] != q_emb_local.shape[0]:
+            raise ValueError("Embedding dimensions do not match the current index. Please rebuild the index using the current embedding model (Scan data/ → rebuild).")
         sims_local = cosine_sim(q_emb_local, _embeddings_cache).flatten()
         sorted_idxs_local = np.argsort(-sims_local)
 
@@ -391,7 +447,10 @@ def rag_answer(
         return candidates_local
 
     # 1) Try strict retrieval
-    candidates = retrieve_for_query(question, sim_threshold, max_files)
+    try:
+        candidates = retrieve_for_query(question, sim_threshold, max_files)
+    except (ValueError, RuntimeError) as err:
+        return str(err)
 
     # 2) If nothing, ask the model to rewrite the query and retry (helps indirect/phrased questions)
     if not candidates:
@@ -409,6 +468,8 @@ def rag_answer(
             if rewritten:
                 # retry with rewritten query using a bit lower threshold and larger max_files
                 candidates = retrieve_for_query(rewritten, max(sim_threshold * 0.8, 0.30), max_files * 3)
+        except (ValueError, RuntimeError) as err:
+            return str(err)
         except Exception:
             candidates = []
 
